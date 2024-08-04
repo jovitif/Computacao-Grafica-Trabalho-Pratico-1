@@ -68,7 +68,7 @@ void Curves::Update()
         float x = (mx - cx) / cx;
         float y = (cy - my) / cy;
 
-        vertices[index] = { XMFLOAT3(x, y, 0.0f), XMFLOAT4(Colors::White) };
+        vertices[index] = { XMFLOAT3(x, y, 0.0f), XMFLOAT4(Colors:: BlueViolet) };
         index = (index + 1) % MaxVertex;
         
         if (count < MaxVertex)
