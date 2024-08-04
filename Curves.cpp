@@ -1,25 +1,10 @@
-/**********************************************************************************
-// Curves (Código Fonte)
-//
-// Criação:     12 Ago 2020
-// Atualização: 06 Ago 2023
-// Compilador:  Visual C++ 2022
-//
-// Descrição:   Base para gerar curvas usando Corner-Cutting
-//
-**********************************************************************************/
-
 #include "DXUT.h"
-
-// ------------------------------------------------------------------------------
 
 struct Vertex
 {
     XMFLOAT3 Pos;
     XMFLOAT4 Color;
 };
-
-// ------------------------------------------------------------------------------
 
 class Curves : public App
 {
@@ -43,39 +28,36 @@ public:
     void BuildPipelineState();
 };
 
-// ------------------------------------------------------------------------------
-
 void Curves::Init()
 {
     graphics->ResetCommands();
 
-    // ---------[ Build Geometry ]------------
-    
-    // tamanho do buffer de vértices em bytes
     const uint vbSize = MaxVertex * sizeof(Vertex);
 
-    // cria malha 3D
     geometry = new Mesh(vbSize, sizeof(Vertex));
-
-    // ---------------------------------------
 
     BuildRootSignature();
     BuildPipelineState();        
     
-    // ---------------------------------------
-
     graphics->SubmitCommands();
 }
 
-// ------------------------------------------------------------------------------
-
 void Curves::Update()
 {
-    // sai com o pressionamento da tecla ESC
     if (input->KeyPress(VK_ESCAPE))
         window->Close();
 
-    // cria vértices com o botão do mouse
+    if (input->KeyPress(VK_DELETE)) { // Permitir que ao pressionar o botão de delete ele elimine a curva toda.
+        memset(vertices, 0, sizeof(vertices));
+        count = 0;
+        index = 0;
+
+        graphics->ResetCommands();
+        graphics->Copy(vertices, geometry->vertexBufferSize, geometry->vertexBufferUpload, geometry->vertexBufferGPU);
+        graphics->SubmitCommands();
+        Display();
+    }
+
     if (input->KeyPress(VK_LBUTTON))
     {
         float cx = float(window->CenterX());
@@ -83,9 +65,6 @@ void Curves::Update()
         float mx = float(input->MouseX());
         float my = float(input->MouseY());
         
-        // converte as coordenadas da tela para a faixa -1.0 a 1.0
-        // cy e my foram invertidos para levar em consideração que 
-        // o eixo y da tela cresce na direção oposta do cartesiano
         float x = (mx - cx) / cx;
         float y = (cy - my) / cy;
 
@@ -95,7 +74,6 @@ void Curves::Update()
         if (count < MaxVertex)
             ++count;
 
-        // copia vértices para o buffer da GPU usando o buffer de Upload
         graphics->ResetCommands();
         graphics->Copy(vertices, geometry->vertexBufferSize, geometry->vertexBufferUpload, geometry->vertexBufferGPU);
         graphics->SubmitCommands();
@@ -103,26 +81,20 @@ void Curves::Update()
     }
 }
 
-// ------------------------------------------------------------------------------
-
 void Curves::Display()
 {
-    // limpa backbuffer
     graphics->Clear(pipelineState);
 
-    // submete comandos de configuração do pipeline
     graphics->CommandList()->SetGraphicsRootSignature(rootSignature);
     graphics->CommandList()->IASetVertexBuffers(0, 1, geometry->VertexBufferView());
     graphics->CommandList()->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINESTRIP);
 
-    // submete comandos de desenho
     graphics->CommandList()->DrawInstanced(count, 1, 0, 0);
 
-    // apresenta backbuffer
+ 
+
     graphics->Present();    
 }
-
-// ------------------------------------------------------------------------------
 
 void Curves::Finalize()
 {
@@ -131,14 +103,8 @@ void Curves::Finalize()
     delete geometry;
 }
 
-
-// ------------------------------------------------------------------------------
-//                                     D3D                                      
-// ------------------------------------------------------------------------------
-
 void Curves::BuildRootSignature()
 {
-    // descrição para uma assinatura vazia
     D3D12_ROOT_SIGNATURE_DESC rootSigDesc = {};
     rootSigDesc.NumParameters = 0;
     rootSigDesc.pParameters = nullptr;
@@ -146,7 +112,6 @@ void Curves::BuildRootSignature()
     rootSigDesc.pStaticSamplers = nullptr;
     rootSigDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
-    // serializa assinatura raiz
     ID3DBlob* serializedRootSig = nullptr;
     ID3DBlob* error = nullptr;
 
@@ -156,7 +121,6 @@ void Curves::BuildRootSignature()
         &serializedRootSig,
         &error));
 
-    // cria uma assinatura raiz vazia
     ThrowIfFailed(graphics->Device()->CreateRootSignature(
         0,
         serializedRootSig->GetBufferPointer(),
@@ -164,13 +128,8 @@ void Curves::BuildRootSignature()
         IID_PPV_ARGS(&rootSignature)));
 }
 
-// ------------------------------------------------------------------------------
-
 void Curves::BuildPipelineState()
 {
-    // --------------------
-    // --- Input Layout ---
-    // --------------------
     
     D3D12_INPUT_ELEMENT_DESC inputLayout[2] =
     {
@@ -178,19 +137,11 @@ void Curves::BuildPipelineState()
         { "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
     };
 
-    // --------------------
-    // ----- Shaders ------
-    // --------------------
-
     ID3DBlob* vertexShader;
     ID3DBlob* pixelShader;
 
     D3DReadFileToBlob(L"Shaders/Vertex.cso", &vertexShader);
     D3DReadFileToBlob(L"Shaders/Pixel.cso", &pixelShader);
-
-    // --------------------
-    // ---- Rasterizer ----
-    // --------------------
 
     D3D12_RASTERIZER_DESC rasterizer = {};
     rasterizer.FillMode = D3D12_FILL_MODE_WIREFRAME;
@@ -204,10 +155,6 @@ void Curves::BuildPipelineState()
     rasterizer.AntialiasedLineEnable = FALSE;
     rasterizer.ForcedSampleCount = 0;
     rasterizer.ConservativeRaster = D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF;
-
-    // ---------------------
-    // --- Color Blender ---
-    // ---------------------
 
     D3D12_BLEND_DESC blender = {};
     blender.AlphaToCoverageEnable = FALSE;
@@ -223,10 +170,6 @@ void Curves::BuildPipelineState()
     for (UINT i = 0; i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; ++i)
         blender.RenderTarget[i] = defaultRenderTargetBlendDesc;
 
-    // ---------------------
-    // --- Depth Stencil ---
-    // ---------------------
-
     D3D12_DEPTH_STENCIL_DESC depthStencil = {};
     depthStencil.DepthEnable = TRUE;
     depthStencil.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
@@ -238,10 +181,6 @@ void Curves::BuildPipelineState()
     { D3D12_STENCIL_OP_KEEP, D3D12_STENCIL_OP_KEEP, D3D12_STENCIL_OP_KEEP, D3D12_COMPARISON_FUNC_ALWAYS };
     depthStencil.FrontFace = defaultStencilOp;
     depthStencil.BackFace = defaultStencilOp;
-    
-    // -----------------------------------
-    // --- Pipeline State Object (PSO) ---
-    // -----------------------------------
 
     D3D12_GRAPHICS_PIPELINE_STATE_DESC pso = {};
     pso.pRootSignature = rootSignature;
@@ -264,39 +203,28 @@ void Curves::BuildPipelineState()
     pixelShader->Release();
 }
 
-// ------------------------------------------------------------------------------
-//                                  WinMain                                      
-// ------------------------------------------------------------------------------
-
 int APIENTRY WinMain(_In_ HINSTANCE hInstance,    _In_opt_ HINSTANCE hPrevInstance,
                      _In_ LPSTR lpCmdLine, _In_ int nCmdShow)
 {
     try
     {
-        // cria motor e configura a janela
         Engine* engine = new Engine();
         engine->window->Mode(WINDOWED);
         engine->window->Size(1024, 600);
         engine->window->ResizeMode(ASPECTRATIO);
-        engine->window->Color(0, 122, 204);
-        engine->window->Title("Curves");
+        engine->window->Color(0, 0, 0);
+        engine->window->Title("Trabalho Prático 01");
         engine->window->Icon(IDI_ICON);
         engine->window->LostFocus(Engine::Pause);
         engine->window->InFocus(Engine::Resume);
-
-        // cria e executa a aplicação
         engine->Start(new Curves());
 
-        // finaliza execução
         delete engine;
     }
     catch (Error & e)
     {
-        // exibe mensagem em caso de erro
         MessageBox(nullptr, e.ToString().data(), "Curves", MB_OK);
     }
 
     return 0;
 }
-
-// ----------------------------------------------------------------------------
