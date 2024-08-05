@@ -16,7 +16,7 @@ private:
     ID3D12PipelineState* pipelineState;
     Mesh* geometry;
 
-    static const uint MaxVertex = 4; // por enquanto limitando a 4 vértices
+    static const uint MaxVertex = 100; 
     Vertex vertices[MaxVertex];
     uint count = 0;
     uint index = 0;
@@ -83,11 +83,16 @@ void Curves::Update()
 
             if (numPontos >= 3)
             {
+                /*
+                
                 vertices[0] = { pontosClicados[0], XMFLOAT4(Colors::BlueViolet) };
                 vertices[1] = { pontosClicados[2], XMFLOAT4(Colors::BlueViolet) };
 
                 index = 2;
-                count = 2;
+                count = 2;                */
+                
+
+                BuildBezierCurve();
 
                 graphics->ResetCommands();
                 graphics->Copy(vertices, geometry->vertexBufferSize, geometry->vertexBufferUpload, geometry->vertexBufferGPU);
@@ -98,8 +103,27 @@ void Curves::Update()
     }
 }
 
-void Curves::BuildBezierCurve() {
+void Curves::BuildBezierCurve()
+{
+    if (numPontos < 3) return;
+
+    XMFLOAT3 p1 = pontosClicados[0];
+    XMFLOAT3 p2 = pontosClicados[1];
+    XMFLOAT3 p3 = pontosClicados[2];
+
+    for (uint i = 0; i < MaxVertex; ++i)
+    {
+        float t = i / (float)(MaxVertex - 1);
+        float u = 1 - t;
+
+        float x = u * u * p1.x + 2 * u * t * p2.x + t * t * p3.x;
+        float y = u * u * p1.y + 2 * u * t * p2.y + t * t * p3.y;
+
+        vertices[i] = { XMFLOAT3(x, y, 0.0f), XMFLOAT4(Colors::BlueViolet) };
+    }
+    count = MaxVertex;
 }
+
 
 void Curves::Display()
 {
