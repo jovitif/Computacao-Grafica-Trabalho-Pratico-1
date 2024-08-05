@@ -1,4 +1,7 @@
 #include "DXUT.h"
+#include <iostream>
+#include <vector>
+using namespace std;
 
 struct Vertex
 {
@@ -13,10 +16,13 @@ private:
     ID3D12PipelineState* pipelineState;
     Mesh* geometry;
 
-    static const uint MaxVertex = 10;
+    static const uint MaxVertex = 4; // por enquanto limitando a 4 vértices
     Vertex vertices[MaxVertex];
     uint count = 0;
     uint index = 0;
+
+    XMFLOAT3 pontosClicados[100]; 
+    uint numPontos = 0; 
 
 public:
     void Init();
@@ -26,6 +32,7 @@ public:
 
     void BuildRootSignature();
     void BuildPipelineState();
+    void BuildBezierCurve();
 };
 
 void Curves::Init()
@@ -37,8 +44,8 @@ void Curves::Init()
     geometry = new Mesh(vbSize, sizeof(Vertex));
 
     BuildRootSignature();
-    BuildPipelineState();        
-    
+    BuildPipelineState();
+
     graphics->SubmitCommands();
 }
 
@@ -47,10 +54,12 @@ void Curves::Update()
     if (input->KeyPress(VK_ESCAPE))
         window->Close();
 
-    if (input->KeyPress(VK_DELETE)) { // Permitir que ao pressionar o botão de delete ele elimine a curva toda.
+    if (input->KeyPress(VK_DELETE)) { 
         memset(vertices, 0, sizeof(vertices));
+        memset(pontosClicados, 0, sizeof(pontosClicados)); 
         count = 0;
         index = 0;
+        numPontos = 0; 
 
         graphics->ResetCommands();
         graphics->Copy(vertices, geometry->vertexBufferSize, geometry->vertexBufferUpload, geometry->vertexBufferGPU);
@@ -64,21 +73,32 @@ void Curves::Update()
         float cy = float(window->CenterY());
         float mx = float(input->MouseX());
         float my = float(input->MouseY());
-        
+
         float x = (mx - cx) / cx;
         float y = (cy - my) / cy;
 
-        vertices[index] = { XMFLOAT3(x, y, 0.0f), XMFLOAT4(Colors:: BlueViolet) };
-        index = (index + 1) % MaxVertex;
-        
-        if (count < MaxVertex)
-            ++count;
+        if (numPontos < 100) 
+        {
+            pontosClicados[numPontos++] = XMFLOAT3(x, y, 0.0f); 
 
-        graphics->ResetCommands();
-        graphics->Copy(vertices, geometry->vertexBufferSize, geometry->vertexBufferUpload, geometry->vertexBufferGPU);
-        graphics->SubmitCommands();
-        Display();
+            if (numPontos >= 3)
+            {
+                vertices[0] = { pontosClicados[0], XMFLOAT4(Colors::BlueViolet) };
+                vertices[1] = { pontosClicados[2], XMFLOAT4(Colors::BlueViolet) };
+
+                index = 2;
+                count = 2;
+
+                graphics->ResetCommands();
+                graphics->Copy(vertices, geometry->vertexBufferSize, geometry->vertexBufferUpload, geometry->vertexBufferGPU);
+                graphics->SubmitCommands();
+                Display();
+            }
+        }
     }
+}
+
+void Curves::BuildBezierCurve() {
 }
 
 void Curves::Display()
@@ -87,14 +107,14 @@ void Curves::Display()
 
     graphics->CommandList()->SetGraphicsRootSignature(rootSignature);
     graphics->CommandList()->IASetVertexBuffers(0, 1, geometry->VertexBufferView());
-    graphics->CommandList()->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINESTRIP);
 
+    graphics->CommandList()->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINESTRIP);
     graphics->CommandList()->DrawInstanced(count, 1, 0, 0);
 
- 
-
-    graphics->Present();    
+    graphics->Present();
 }
+
+
 
 void Curves::Finalize()
 {
