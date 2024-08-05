@@ -83,14 +83,6 @@ void Curves::Update()
 
             if (numPontos >= 3)
             {
-                /*
-                
-                vertices[0] = { pontosClicados[0], XMFLOAT4(Colors::BlueViolet) };
-                vertices[1] = { pontosClicados[2], XMFLOAT4(Colors::BlueViolet) };
-
-                index = 2;
-                count = 2;                */
-                
 
                 BuildBezierCurve();
 
@@ -110,14 +102,17 @@ void Curves::BuildBezierCurve()
     XMFLOAT3 p1 = pontosClicados[0];
     XMFLOAT3 p2 = pontosClicados[1];
     XMFLOAT3 p3 = pontosClicados[2];
+    XMFLOAT3 p4 = pontosClicados[3];
+
 
     for (uint i = 0; i < MaxVertex; ++i)
     {
         float t = i / (float)(MaxVertex - 1);
         float u = 1 - t;
 
-        float x = u * u * p1.x + 2 * u * t * p2.x + t * t * p3.x;
-        float y = u * u * p1.y + 2 * u * t * p2.y + t * t * p3.y;
+        // curva de bezier cubica
+        float x = u * u * u * p1.x + 3 * u * u * t * p2.x + 3 * u * t * t * p4.x + t * t * t * p3.x;
+        float y = u * u * u * p1.y + 3 * u * u * t * p2.y + 3 * u * t * t * p4.y + t * t * t * p3.y;
 
         vertices[i] = { XMFLOAT3(x, y, 0.0f), XMFLOAT4(Colors::BlueViolet) };
     }
